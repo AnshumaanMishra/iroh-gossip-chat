@@ -1,6 +1,6 @@
 # iroh-gossip-chat
 
-> Simple chat app in Rust using `iroh-gossip`
+> Simple chat app in Rust using `iroh-gossip`  
 > Reference: [iroh-gossip-chat](https://docs.iroh.computer/examples/chat#messages)
 
 ---
