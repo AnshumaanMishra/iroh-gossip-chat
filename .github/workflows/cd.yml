@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build and package release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release --locked
+
+      - name: Package executable binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          mapfile -t binaries < <(
+            cargo metadata --no-deps --format-version 1 |
+              jq -r '.packages[].targets[] | select(.kind | index("bin")) | .name' |
+              sort -u
+          )
+
+          if [ "${#binaries[@]}" -eq 0 ]; then
+            echo "No binary targets were found in this Cargo workspace."
+            exit 1
+          fi
+
+          for binary in "${binaries[@]}"; do
+            if [ ! -f "target/release/${binary}" ]; then
+              echo "Expected release binary not found: target/release/${binary}"
+              exit 1
+            fi
+            cp "target/release/${binary}" dist/
+          done
+
+          tar -czf release-linux-x86_64.tar.gz -C dist .
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: release-linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 14
